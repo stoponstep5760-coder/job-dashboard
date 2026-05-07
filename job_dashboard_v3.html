@@ -28,6 +28,20 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .export-btn:hover{background:#22c55e;color:#000;}
 .export-btn svg{flex-shrink:0;}
 
+/* Name filter */
+.name-filter-toggle{display:flex;align-items:center;gap:5px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text3);font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .2s;}
+.name-filter-toggle:hover,.name-filter-toggle.active{border-color:var(--accent);color:var(--accent);}
+.name-filter-toggle #name-filter-count{background:var(--accent);color:#000;border-radius:10px;padding:1px 5px;font-size:9px;font-weight:700;display:none;}
+.name-filter-toggle #name-filter-count.show{display:inline;}
+.name-filter-bar{background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:14px 16px;margin-bottom:16px;}
+.name-filter-header{display:flex;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.name-filter-action{padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text3);font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .2s;}
+.name-filter-action:hover{border-color:var(--accent);color:var(--accent);}
+.name-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.name-chip{padding:5px 10px;border:1px solid var(--border);border-radius:20px;background:var(--surface2);color:var(--text2);font-size:11px;cursor:pointer;transition:all .2s;user-select:none;}
+.name-chip:hover{border-color:var(--accent);}
+.name-chip.selected{border-color:var(--accent);background:rgba(0,212,255,0.15);color:var(--accent);}
+
 /* AppSheet link */
 .appsheet-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-size:11px;font-family:'Space Mono',monospace;text-decoration:none;transition:all .2s;}
 .appsheet-btn:hover{border-color:var(--accent);background:var(--surface2);}
@@ -195,6 +209,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <span class="filter-label">TO</span>
     <input type="date" class="filter-input" id="dateTo">
     <button class="apply-btn" onclick="applyFilter()">APPLY</button>
+    <button class="name-filter-toggle" id="name-filter-toggle" onclick="toggleNameFilter()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+      JOB NAME <span id="name-filter-count"></span>
+    </button>
     <div class="preset-group">
       <button class="preset-btn" onclick="setPreset('today',this)">TODAY</button>
       <button class="preset-btn" onclick="setPreset('week',this)">WEEK</button>
@@ -203,7 +221,18 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     </div>
   </div>
 
-  <div id="app">
+  <!-- Job Name Filter -->
+  <div class="name-filter-bar" id="name-filter-bar" style="display:none">
+    <div class="name-filter-header">
+      <span class="filter-label">FILTER BY JOB NAME</span>
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button class="name-filter-action" onclick="selectAllNames()">SELECT ALL</button>
+        <button class="name-filter-action" onclick="clearAllNames()">CLEAR</button>
+        <button class="apply-btn" onclick="applyFilter()">APPLY</button>
+      </div>
+    </div>
+    <div class="name-chips" id="name-chips"></div>
+  </div>
     <div class="loading"><div class="spin"></div><p class="lp">กำลังโหลดข้อมูล...</p></div>
   </div>
 </div>
@@ -245,6 +274,61 @@ function gsc(s){return STATUS_COLORS[s]||'#64748b';}
 function nameColor(n){return`hsl(${Math.abs(n.split('').reduce((a,c)=>a+c.charCodeAt(0),0))%360},55%,55%)`;}
 
 let allData=[], filteredData=[], typeMode='bar', dailyMode='type';
+let selectedNames=new Set(); // empty = all
+
+function toggleNameFilter(){
+  const bar=document.getElementById('name-filter-bar');
+  const btn=document.getElementById('name-filter-toggle');
+  const isOpen=bar.style.display!=='none';
+  bar.style.display=isOpen?'none':'block';
+  btn.classList.toggle('active',!isOpen);
+}
+
+function buildNameChips(){
+  const names=[...new Set(allData.map(r=>r['Job_Name']||'?'))].sort();
+  const chips=document.getElementById('name-chips');
+  document.getElementById('name-filter-bar').style.display='block';
+  chips.innerHTML=names.map(n=>`
+    <div class="name-chip ${selectedNames.size===0||selectedNames.has(n)?'selected':''}" 
+         onclick="toggleName('${n.replace(/'/g,"\\'")}',this)">${n}</div>
+  `).join('');
+  document.getElementById('name-filter-bar').style.display='none';
+}
+
+function toggleName(name,el){
+  if(selectedNames.has(name)){
+    selectedNames.delete(name);
+    el.classList.remove('selected');
+  } else {
+    selectedNames.add(name);
+    el.classList.add('selected');
+  }
+  updateNameCount();
+}
+
+function selectAllNames(){
+  selectedNames.clear();
+  document.querySelectorAll('.name-chip').forEach(c=>c.classList.add('selected'));
+  updateNameCount();
+}
+
+function clearAllNames(){
+  selectedNames.clear();
+  document.querySelectorAll('.name-chip').forEach(c=>c.classList.remove('selected'));
+  updateNameCount();
+}
+
+function updateNameCount(){
+  const cnt=document.getElementById('name-filter-count');
+  if(selectedNames.size>0){
+    cnt.textContent=selectedNames.size;
+    cnt.classList.add('show');
+    document.getElementById('name-filter-toggle').classList.add('active');
+  } else {
+    cnt.classList.remove('show');
+    document.getElementById('name-filter-toggle').classList.remove('active');
+  }
+}
 
 // Set AppSheet link
 document.getElementById('appsheet-link').href = APPSHEET_URL;
@@ -326,6 +410,7 @@ function applyFilter(){
     const rd=toYMD(r._date);
     if(from && rd<from) return false;
     if(to && rd>to) return false;
+    if(selectedNames.size>0 && !selectedNames.has(r['Job_Name']||'?')) return false;
     return true;
   });
   renderCharts();
@@ -682,6 +767,7 @@ function exportExcel(){
   try{
     allData=await loadData();
     filteredData=[...allData];
+    buildNameChips();
     renderCharts();
   } catch(e){
     document.getElementById('app').innerHTML=`<div class="err">❌ โหลดข้อมูลไม่ได้<br><small>${e.message}</small></div>`;
