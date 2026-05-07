@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Record Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=Space+Mono:wght@400;700&display=swap');
+:root {
+  --bg:#0a0e1a; --surface:#111827; --surface2:#1a2236; --surface3:#0f172a;
+  --border:#1e2d45; --accent:#00d4ff; --text:#e2e8f0; --text2:#94a3b8; --text3:#475569;
+  --done:#22c55e; --pending:#f59e0b; --active:#3b82f6;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+.wrap{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:20px 16px;}
+
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);}
+.header h1{font-family:'Space Mono',monospace;font-size:16px;color:var(--accent);}
+.header p{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;margin-top:2px;}
+.header-right{display:flex;align-items:center;gap:12px;}
+.live{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;}
+.dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* AppSheet link */
+.appsheet-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-size:11px;font-family:'Space Mono',monospace;text-decoration:none;transition:all .2s;}
+.appsheet-btn:hover{border-color:var(--accent);background:var(--surface2);}
+.appsheet-btn svg{width:14px;height:14px;fill:var(--accent);}
+
+/* Filter */
+.filter-bar{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+.filter-label{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;white-space:nowrap;}
+.filter-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Sarabun',sans-serif;font-size:12px;padding:6px 10px;outline:none;cursor:pointer;}
+.filter-input:focus{border-color:var(--accent);}
+.filter-input::-webkit-calendar-picker-indicator{filter:invert(0.6);}
+.preset-group{display:flex;gap:4px;margin-left:auto;}
+.preset-btn{padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text3);font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .2s;}
+.preset-btn:hover{border-color:var(--accent);color:var(--accent);}
+.preset-btn.active{background:var(--surface2);border-color:var(--accent);color:var(--accent);}
+.apply-btn{padding:6px 14px;border:none;border-radius:6px;background:var(--accent);color:#000;font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;font-weight:700;transition:opacity .2s;}
+.apply-btn:hover{opacity:.85;}
+
+/* Cards */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.card:nth-child(1)::before{background:var(--accent);}
+.card:nth-child(2)::before{background:#ff6b35;}
+.card:nth-child(3)::before{background:#a78bfa;}
+.card:nth-child(4)::before{background:#22c55e;}
+.clabel{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-family:'Space Mono',monospace;margin-bottom:6px;}
+.cval{font-size:22px;font-weight:700;font-family:'Space Mono',monospace;}
+.card:nth-child(1) .cval{color:var(--accent);}
+.card:nth-child(2) .cval{color:#ff6b35;}
+.card:nth-child(3) .cval{color:#a78bfa;}
+.card:nth-child(4) .cval{color:#22c55e;}
+.csub{font-size:10px;color:var(--text3);margin-top:3px;}
+
+/* Chart grid */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;}
+.chart-box.full{grid-column:1/-1;}
+.chart-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+.chart-title{font-size:12px;font-weight:600;font-family:'Space Mono',monospace;}
+.chart-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+.toggle{display:flex;gap:3px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:3px;}
+.tbtn{padding:4px 9px;border:none;border-radius:4px;font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;background:transparent;color:var(--text3);transition:all .2s;}
+.tbtn.active{background:var(--surface2);color:var(--accent);border:1px solid var(--border);}
+
+/* Horizontal bar */
+.hbar-chart{display:flex;flex-direction:column;gap:8px;}
+.hbar-row{display:flex;align-items:center;gap:8px;}
+.hbar-label{width:80px;font-size:11px;color:var(--text2);text-align:right;flex-shrink:0;font-family:'Space Mono',monospace;}
+.hbar-track{flex:1;height:30px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.hbar-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;width:0;transition:width .8s cubic-bezier(.16,1,.3,1);}
+.hbar-fill span{font-size:10px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.9);font-weight:700;white-space:nowrap;}
+.hbar-val{width:60px;font-size:11px;color:var(--text2);font-family:'Space Mono',monospace;text-align:right;flex-shrink:0;}
+.stacked{height:46px;border-radius:6px;overflow:hidden;display:flex;width:100%;margin-top:4px;}
+.seg{height:100%;display:flex;align-items:center;justify-content:center;width:0;transition:width .8s cubic-bezier(.16,1,.3,1);overflow:hidden;}
+.seg span{font-size:10px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.9);font-weight:700;white-space:nowrap;}
+
+/* Status */
+.status-chart{display:flex;flex-direction:column;gap:10px;}
+.status-row{display:flex;align-items:center;gap:8px;}
+.status-label{width:70px;font-size:11px;color:var(--text2);text-align:right;flex-shrink:0;}
+.status-track{flex:1;height:26px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.status-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding-left:8px;width:0;transition:width .8s cubic-bezier(.16,1,.3,1);}
+.status-fill span{font-size:10px;font-family:'Space Mono',monospace;color:rgba(255,255,255,.9);font-weight:700;}
+.status-val{width:30px;font-size:11px;color:var(--text2);font-family:'Space Mono',monospace;text-align:right;flex-shrink:0;}
+
+/* Daily vertical bar — auto fill width */
+.vbar-outer{width:100%;overflow-x:auto;padding-bottom:4px;}
+.vbar-chart{display:flex;align-items:flex-end;gap:6px;height:200px;padding:0 4px;width:100%;}
+.vbar-col{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;min-width:32px;max-width:80px;cursor:pointer;}
+.vbar-col:hover .vbar-stack{opacity:.75;}
+.vbar-stack{display:flex;flex-direction:column-reverse;width:100%;border-radius:3px 3px 0 0;overflow:hidden;transition:opacity .2s;}
+.vbar-seg{width:100%;transition:height .8s cubic-bezier(.16,1,.3,1);}
+.vbar-base{width:100%;height:2px;background:var(--border);}
+.vbar-label{font-size:9px;color:var(--text3);font-family:'Space Mono',monospace;white-space:nowrap;margin-top:2px;}
+.vbar-total{font-size:9px;color:var(--text2);font-family:'Space Mono',monospace;margin-bottom:3px;white-space:nowrap;}
+
+/* Legend */
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border);}
+.li{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);}
+.ld{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+.lh{font-family:'Space Mono',monospace;color:var(--text3);font-size:10px;}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;}
+.modal-header{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border);}
+.modal-title{font-family:'Space Mono',monospace;font-size:13px;color:var(--accent);}
+.modal-date{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;margin-top:2px;}
+.modal-close{background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;padding:2px 6px;}
+.modal-close:hover{color:var(--text);}
+.modal-body{overflow-y:auto;padding:16px 18px;flex:1;}
+.modal-summary{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.modal-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;flex:1;min-width:120px;}
+.modal-card-label{font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;margin-bottom:4px;}
+.modal-card-val{font-size:16px;font-weight:700;font-family:'Space Mono',monospace;color:var(--accent);}
+.job-list{display:flex;flex-direction:column;gap:8px;}
+.job-item{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.job-item-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;}
+.job-name{font-size:13px;font-weight:600;color:var(--text);}
+.job-type-badge{font-size:10px;font-family:'Space Mono',monospace;padding:2px 8px;border-radius:4px;color:#000;font-weight:700;}
+.job-meta{display:flex;gap:12px;flex-wrap:wrap;}
+.job-meta-item{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;}
+.job-meta-item span{color:var(--text2);}
+.job-detail-text{font-size:11px;color:var(--text3);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);line-height:1.5;}
+.time-bar{height:3px;border-radius:2px;margin-top:8px;background:var(--border);overflow:hidden;}
+.time-bar-fill{height:100%;border-radius:2px;}
+
+/* QR Modal */
+.qr-btn{display:flex;align-items:center;gap:5px;padding:5px 10px;background:var(--surface);border:1px solid var(--border);border-radius:7px;color:var(--text3);font-size:10px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .2s;}
+.qr-btn:hover{border-color:var(--accent);color:var(--accent);}
+.qr-modal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;display:none;align-items:center;justify-content:center;}
+.qr-modal.open{display:flex;}
+.qr-box{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;text-align:center;max-width:280px;width:100%;}
+.qr-box h3{font-family:'Space Mono',monospace;font-size:12px;color:var(--accent);margin-bottom:16px;}
+.qr-box img{width:180px;height:180px;border-radius:8px;background:#fff;padding:8px;}
+.qr-box p{font-size:11px;color:var(--text3);margin-top:12px;font-family:'Space Mono',monospace;}
+.qr-close{margin-top:14px;padding:6px 20px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;}
+
+/* Footer */
+.footer{text-align:center;font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;padding-top:14px;border-top:1px solid var(--border);margin-top:4px;}
+
+/* Loading/Error */
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:12px;}
+.spin{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.lp{font-size:12px;color:var(--text3);font-family:'Space Mono',monospace;}
+.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:14px;color:#fca5a5;font-size:12px;text-align:center;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fin{animation:fadeUp .35s ease forwards;}
+
+@media(max-width:640px){
+  .cards{grid-template-columns:repeat(2,1fr);}
+  .chart-grid{grid-template-columns:1fr;}
+  .chart-box.full{grid-column:1;}
+  .hbar-label{width:60px;font-size:10px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div><h1>JOB_RECORD</h1><p>Daily Work Dashboard</p></div>
+    <div class="header-right">
+      <a href="https://www.appsheet.com/start/YOUR_APP_ID" target="_blank" class="appsheet-btn" id="appsheet-link">
+        <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zm0 11h7v7H3zm11-11h7v7h-7zm0 11h7v7h-7z"/></svg>
+        AppSheet
+      </a>
+      <button class="qr-btn" onclick="openQR()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v7H3zm2 2v3h3V5zm-2 9h7v7H3zm2 2v3h3v-3zm9-13h7v7h-7zm2 2v3h3V5zm1 9h2v2h-2zm2 2h2v2h-2zm-4 0h2v2h-2zm2 2h2v2h-2zm-2 2h2v2h-2zm2 0h2v2h-2z"/></svg>
+        QR
+      </button>
+      <div class="live"><div class="dot"></div><span id="upd">loading...</span></div>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <span class="filter-label">FROM</span>
+    <input type="date" class="filter-input" id="dateFrom">
+    <span class="filter-label">TO</span>
+    <input type="date" class="filter-input" id="dateTo">
+    <button class="apply-btn" onclick="applyFilter()">APPLY</button>
+    <div class="preset-group">
+      <button class="preset-btn" onclick="setPreset('today',this)">TODAY</button>
+      <button class="preset-btn" onclick="setPreset('week',this)">WEEK</button>
+      <button class="preset-btn" onclick="setPreset('month',this)">MONTH</button>
+      <button class="preset-btn active" onclick="setPreset('all',this)">ALL</button>
+    </div>
+  </div>
+
+  <div id="app">
+    <div class="loading"><div class="spin"></div><p class="lp">กำลังโหลดข้อมูล...</p></div>
+  </div>
+</div>
+
+<!-- Day Detail Modal -->
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">วันที่</div>
+        <div class="modal-date" id="modal-subtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- QR Modal -->
+<div class="qr-modal" id="qr-modal" onclick="if(event.target===this)closeQR()">
+  <div class="qr-box">
+    <h3>OPEN IN APPSHEET</h3>
+    <img id="qr-img" src="" alt="QR Code">
+    <p>สแกนเพื่อเปิด AppSheet</p>
+    <button class="qr-close" onclick="closeQR()">CLOSE</button>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1oou_Sj2ZdwnAaqEMXGCUtw2syPAQ24qP8JrTfINdojc';
+// *** เปลี่ยน URL นี้เป็น link AppSheet ของคุณ ***
+const APPSHEET_URL = 'https://www.appsheet.com/start/YOUR_APP_ID';
+
+const TYPE_COLORS = {'KPI':'#00d4ff','Non-KPI':'#ff6b35','Other':'#a78bfa','Meeting':'#34d399','Onsite':'#fbbf24','Check E-mail':'#f472b6'};
+const STATUS_COLORS = {'เสร็จสิ้น':'#22c55e','คงค้าง':'#f59e0b','กำลังทำ':'#3b82f6'};
+function gc(t){return TYPE_COLORS[t]||'#64748b';}
+function gsc(s){return STATUS_COLORS[s]||'#64748b';}
+function nameColor(n){return`hsl(${Math.abs(n.split('').reduce((a,c)=>a+c.charCodeAt(0),0))%360},55%,55%)`;}
+
+let allData=[], filteredData=[], typeMode='bar', dailyMode='type';
+
+// Set AppSheet link
+document.getElementById('appsheet-link').href = APPSHEET_URL;
+document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(APPSHEET_URL)}`;
+
+function parseDuration(val){
+  if(!val||val==='') return 0;
+  val=String(val).trim();
+  if(val.includes(':')){const p=val.split(':');return(parseFloat(p[0])||0)*60+(parseFloat(p[1])||0)+(parseFloat(p[2])||0)/60;}
+  const n=parseFloat(val);
+  if(!isNaN(n))return n<2?n*24*60:n;
+  return 0;
+}
+
+function parseDate(val){
+  if(!val) return null;
+  val=String(val).trim();
+  if(val.includes('/')){const p=val.split('/');if(p.length===3){return new Date(parseInt(p[2]),parseInt(p[0])-1,parseInt(p[1]));}}
+  const d=new Date(val);return isNaN(d)?null:d;
+}
+
+function fmtH(m){
+  const h=Math.floor(m/60),min=Math.round(m%60);
+  if(h===0)return`${min}m`;if(min===0)return`${h}h`;return`${h}h ${min}m`;
+}
+
+function toYMD(d){
+  if(!d)return'';
+  return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function fmtDateTime(val){
+  if(!val)return'-';
+  val=String(val).trim();
+  return val.replace('T',' ').substring(0,16);
+}
+
+async function loadData(){
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=job_record`;
+  const res=await fetch(url);
+  const text=await res.text();
+  const json=JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*)\)/)[1]);
+  const cols=json.table.cols.map(c=>c.label);
+  return (json.table.rows||[]).map(row=>{
+    const obj={};
+    cols.forEach((c,i)=>{const cell=row.c[i];obj[c]=cell?(cell.f!=null?cell.f:cell.v):null;});
+    obj._date=parseDate(obj['Job_Date']);
+    obj._dur=parseDuration(obj['Duration']);
+    return obj;
+  });
+}
+
+function setPreset(p,btn){
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const now=new Date(),y=now.getFullYear(),m=now.getMonth(),d=now.getDate();
+  if(p==='today'){
+    document.getElementById('dateFrom').value=toYMD(new Date(y,m,d));
+    document.getElementById('dateTo').value=toYMD(new Date(y,m,d));
+  } else if(p==='week'){
+    const day=now.getDay(),diff=day===0?6:day-1;
+    document.getElementById('dateFrom').value=toYMD(new Date(y,m,d-diff));
+    document.getElementById('dateTo').value=toYMD(new Date(y,m,d));
+  } else if(p==='month'){
+    document.getElementById('dateFrom').value=toYMD(new Date(y,m,1));
+    document.getElementById('dateTo').value=toYMD(new Date(y,m,d));
+  } else {
+    document.getElementById('dateFrom').value='';
+    document.getElementById('dateTo').value='';
+  }
+  applyFilter();
+}
+
+function applyFilter(){
+  const from=document.getElementById('dateFrom').value;
+  const to=document.getElementById('dateTo').value;
+  filteredData=allData.filter(r=>{
+    if(!r._date) return false;
+    const rd=toYMD(r._date);
+    if(from && rd<from) return false;
+    if(to && rd>to) return false;
+    return true;
+  });
+  renderCharts();
+}
+
+function renderCharts(){
+  const done=filteredData.filter(r=>r['Status']==='เสร็จสิ้น'||r['Status']==='คงค้าง');
+  const totalMin=done.reduce((s,r)=>s+r._dur,0);
+  const doneCount=filteredData.filter(r=>r['Status']==='เสร็จสิ้น').length;
+  const pendCount=filteredData.filter(r=>r['Status']==='คงค้าง').length;
+
+  const typeMap={};
+  done.forEach(r=>{const t=r['Job_Type']||'Other';if(!typeMap[t])typeMap[t]=0;typeMap[t]+=r._dur;});
+  const types=Object.entries(typeMap).sort((a,b)=>b[1]-a[1]);
+  const totalTypeMin=types.reduce((s,[,m])=>s+m,0);
+
+  const statusMap={};
+  filteredData.forEach(r=>{const s=r['Status']||'?';if(!statusMap[s])statusMap[s]=0;statusMap[s]++;});
+  const statuses=Object.entries(statusMap).sort((a,b)=>b[1]-a[1]);
+  const totalStatus=filteredData.length;
+
+  // Daily
+  const dailyMap={};
+  done.forEach(r=>{
+    if(!r._date)return;
+    const dk=toYMD(r._date);
+    if(!dailyMap[dk])dailyMap[dk]={total:0,types:{},names:{},rows:[]};
+    dailyMap[dk].total+=r._dur;
+    dailyMap[dk].rows.push(r);
+    const t=r['Job_Type']||'Other';
+    if(!dailyMap[dk].types[t])dailyMap[dk].types[t]=0;
+    dailyMap[dk].types[t]+=r._dur;
+    const n=r['Job_Name']||'?';
+    if(!dailyMap[dk].names[n])dailyMap[dk].names[n]=0;
+    dailyMap[dk].names[n]+=r._dur;
+  });
+  const dailyKeys=Object.keys(dailyMap).sort();
+  const maxDaily=Math.max(...dailyKeys.map(k=>dailyMap[k].total),1);
+  const BAR_H=160;
+
+  document.getElementById('app').innerHTML=`
+    <div class="cards fin">
+      <div class="card"><div class="clabel">Total Jobs</div><div class="cval">${filteredData.length}</div><div class="csub">ทุกสถานะ</div></div>
+      <div class="card"><div class="clabel">Total Hours</div><div class="cval">${fmtH(totalMin)}</div><div class="csub">เวลาทำงานรวม</div></div>
+      <div class="card"><div class="clabel">Job Types</div><div class="cval">${types.length}</div><div class="csub">ประเภทงาน</div></div>
+      <div class="card"><div class="clabel">Completed</div><div class="cval">${doneCount}</div><div class="csub">เสร็จสิ้น / คงค้าง ${pendCount}</div></div>
+    </div>
+
+    <div class="chart-grid fin">
+      <div class="chart-box">
+        <div class="chart-header">
+          <div><div class="chart-title">Duration by Job Type</div><div class="chart-sub">เวลารวมตามประเภทงาน</div></div>
+          <div class="toggle">
+            <button class="tbtn ${typeMode==='bar'?'active':''}" onclick="swType('bar')">BAR</button>
+            <button class="tbtn ${typeMode==='stacked'?'active':''}" onclick="swType('stacked')">100%</button>
+          </div>
+        </div>
+        <div id="type-chart-area">${typeMode==='bar'?renderTypeBar(types,totalTypeMin):renderTypeStacked(types,totalTypeMin)}</div>
+        <div class="legend">${types.map(([t,m])=>`<div class="li"><div class="ld" style="background:${gc(t)}"></div><span>${t}</span><span class="lh">${fmtH(m)}</span></div>`).join('')}</div>
+      </div>
+
+      <div class="chart-box">
+        <div class="chart-header">
+          <div><div class="chart-title">Jobs by Status</div><div class="chart-sub">จำนวนงานแต่ละสถานะ</div></div>
+        </div>
+        <div class="status-chart">
+          ${statuses.map(([s,c])=>{
+            const pct=Math.round(c/totalStatus*100);
+            return`<div class="status-row">
+              <div class="status-label">${s}</div>
+              <div class="status-track"><div class="status-fill" data-w="${pct}%" style="background:${gsc(s)}"><span>${pct}%</span></div></div>
+              <div class="status-val">${c}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="legend">${statuses.map(([s,c])=>`<div class="li"><div class="ld" style="background:${gsc(s)}"></div><span>${s}</span><span class="lh">${c} งาน</span></div>`).join('')}</div>
+      </div>
+    </div>
+
+    <div class="chart-box full fin">
+      <div class="chart-header">
+        <div><div class="chart-title">Daily Duration</div><div class="chart-sub">คลิกที่แท่งเพื่อดูรายละเอียด</div></div>
+        <div class="toggle">
+          <button class="tbtn ${dailyMode==='type'?'active':''}" onclick="swDaily('type')">JOB TYPE</button>
+          <button class="tbtn ${dailyMode==='name'?'active':''}" onclick="swDaily('name')">JOB NAME</button>
+        </div>
+      </div>
+      <div class="vbar-outer">
+        <div class="vbar-chart" id="daily-chart-area">
+          ${renderDaily(dailyKeys,dailyMap,maxDaily,BAR_H)}
+        </div>
+      </div>
+      <div class="legend" id="daily-legend">${renderDailyLegend(dailyKeys,dailyMap)}</div>
+    </div>
+
+    <div class="footer">อัปเดตจาก Google Sheets • ${new Date().toLocaleString('th-TH')}</div>
+  `;
+
+  document.getElementById('upd').textContent='live ✓';
+  setTimeout(()=>{
+    document.querySelectorAll('.hbar-fill,.seg,.status-fill').forEach(el=>el.style.width=el.dataset.w);
+    document.querySelectorAll('.vbar-seg').forEach(el=>el.style.height=el.dataset.h);
+  },60);
+
+  // Store dailyMap globally for modal
+  window._dailyMap=dailyMap;
+}
+
+function renderTypeBar(types,totalMin){
+  const mx=types[0]?.[1]||1;
+  return`<div class="hbar-chart">${types.map(([t,m])=>{
+    const pct=Math.round(m/mx*100),tp=totalMin>0?Math.round(m/totalMin*100):0;
+    return`<div class="hbar-row">
+      <div class="hbar-label">${t}</div>
+      <div class="hbar-track"><div class="hbar-fill" data-w="${pct}%" style="background:${gc(t)}"><span>${tp}%</span></div></div>
+      <div class="hbar-val">${fmtH(m)}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function renderTypeStacked(types,totalMin){
+  if(!totalMin)return'<div style="color:#475569;text-align:center;padding:20px">ไม่มีข้อมูล</div>';
+  return`<div class="stacked">${types.map(([t,m])=>{
+    const pct=m/totalMin*100;
+    return`<div class="seg" data-w="${pct.toFixed(1)}%" style="background:${gc(t)}">${pct>=8?`<span>${pct.toFixed(0)}%</span>`:''}</div>`;
+  }).join('')}</div>`;
+}
+
+function renderDaily(keys,map,maxMin,BAR_H){
+  if(!keys.length)return'<div style="color:#475569;padding:20px;font-size:12px">ไม่มีข้อมูล</div>';
+  return keys.map(dk=>{
+    const day=map[dk];
+    const h=maxMin>0?Math.round(day.total/maxMin*BAR_H):0;
+    const groups=dailyMode==='type'?day.types:day.names;
+    const entries=Object.entries(groups).sort((a,b)=>b[1]-a[1]);
+    const totalSeg=entries.reduce((s,[,v])=>s+v,0)||1;
+    const segs=entries.map(([k,v])=>{
+      const sh=Math.round(v/totalSeg*h);
+      const col=dailyMode==='type'?gc(k):nameColor(k);
+      return`<div class="vbar-seg" data-h="${sh}px" style="height:0;background:${col}"></div>`;
+    }).join('');
+    const d=new Date(dk+'T00:00:00');
+    const label=`${d.getDate()}/${d.getMonth()+1}`;
+    return`<div class="vbar-col" onclick="openDayModal('${dk}')">
+      <div class="vbar-total">${fmtH(day.total)}</div>
+      <div class="vbar-stack" style="height:${h}px">${segs}</div>
+      <div class="vbar-base"></div>
+      <div class="vbar-label">${label}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDailyLegend(keys,map){
+  if(dailyMode==='type'){
+    const s=new Set();keys.forEach(k=>Object.keys(map[k].types).forEach(t=>s.add(t)));
+    return[...s].map(t=>`<div class="li"><div class="ld" style="background:${gc(t)}"></div><span>${t}</span></div>`).join('');
+  } else {
+    const s=new Set();keys.forEach(k=>Object.keys(map[k].names).forEach(n=>s.add(n)));
+    return[...s].map(n=>`<div class="li"><div class="ld" style="background:${nameColor(n)}"></div><span>${n}</span></div>`).join('');
+  }
+}
+
+function swType(m){
+  typeMode=m;
+  const done=filteredData.filter(r=>r['Status']==='เสร็จสิ้น'||r['Status']==='คงค้าง');
+  const tm={};done.forEach(r=>{const t=r['Job_Type']||'Other';if(!tm[t])tm[t]=0;tm[t]+=r._dur;});
+  const types=Object.entries(tm).sort((a,b)=>b[1]-a[1]);
+  const total=types.reduce((s,[,m])=>s+m,0);
+  document.getElementById('type-chart-area').innerHTML=m==='bar'?renderTypeBar(types,total):renderTypeStacked(types,total);
+  document.querySelectorAll('.tbtn').forEach(b=>{
+    if(b.getAttribute('onclick')===`swType('${m}')`)b.classList.add('active');
+    else if(b.getAttribute('onclick')?.startsWith('swType'))b.classList.remove('active');
+  });
+  setTimeout(()=>document.querySelectorAll('.hbar-fill,.seg').forEach(el=>el.style.width=el.dataset.w),60);
+}
+
+function swDaily(m){
+  dailyMode=m;
+  const done=filteredData.filter(r=>r['Status']==='เสร็จสิ้น'||r['Status']==='คงค้าง');
+  const dm={};
+  done.forEach(r=>{
+    if(!r._date)return;
+    const dk=toYMD(r._date);
+    if(!dm[dk])dm[dk]={total:0,types:{},names:{},rows:[]};
+    dm[dk].total+=r._dur;dm[dk].rows.push(r);
+    const t=r['Job_Type']||'Other';if(!dm[dk].types[t])dm[dk].types[t]=0;dm[dk].types[t]+=r._dur;
+    const n=r['Job_Name']||'?';if(!dm[dk].names[n])dm[dk].names[n]=0;dm[dk].names[n]+=r._dur;
+  });
+  const keys=Object.keys(dm).sort();
+  const mx=Math.max(...keys.map(k=>dm[k].total),1);
+  window._dailyMap=dm;
+  document.getElementById('daily-chart-area').innerHTML=renderDaily(keys,dm,mx,160);
+  document.getElementById('daily-legend').innerHTML=renderDailyLegend(keys,dm);
+  document.querySelectorAll('.tbtn').forEach(b=>{
+    if(b.getAttribute('onclick')===`swDaily('${m}')`)b.classList.add('active');
+    else if(b.getAttribute('onclick')?.startsWith('swDaily'))b.classList.remove('active');
+  });
+  setTimeout(()=>document.querySelectorAll('.vbar-seg').forEach(el=>el.style.height=el.dataset.h),60);
+}
+
+// Day Modal
+function openDayModal(dk){
+  const day=window._dailyMap?.[dk];
+  if(!day)return;
+  const d=new Date(dk+'T00:00:00');
+  const dayNames=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'];
+  document.getElementById('modal-title').textContent=`${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
+  document.getElementById('modal-subtitle').textContent=`วัน${dayNames[d.getDay()]} • ${day.rows.length} รายการ • รวม ${fmtH(day.total)}`;
+
+  // Sort rows by Start_Time
+  const rows=[...day.rows].sort((a,b)=>{
+    const ta=String(a['Start_Time']||'');
+    const tb=String(b['Start_Time']||'');
+    return ta.localeCompare(tb);
+  });
+
+  const summary=`
+    <div class="modal-summary">
+      <div class="modal-card"><div class="modal-card-label">รายการ</div><div class="modal-card-val">${rows.length}</div></div>
+      <div class="modal-card"><div class="modal-card-label">เวลารวม</div><div class="modal-card-val" style="color:#ff6b35">${fmtH(day.total)}</div></div>
+      <div class="modal-card"><div class="modal-card-label">ประเภท</div><div class="modal-card-val" style="color:#a78bfa">${Object.keys(day.types).length}</div></div>
+    </div>`;
+
+  const jobList=`<div class="job-list">${rows.map(r=>{
+    const col=gc(r['Job_Type']||'Other');
+    const startT=r['Start_Time']?String(r['Start_Time']).substring(11,16):'?';
+    const endT=r['End_Time']?String(r['End_Time']).substring(11,16):'?';
+    return`<div class="job-item">
+      <div class="job-item-header">
+        <div class="job-name">${r['Job_Name']||'-'}</div>
+        <span class="job-type-badge" style="background:${col}">${r['Job_Type']||'-'}</span>
+      </div>
+      <div class="job-meta">
+        <div class="job-meta-item">⏱ <span>${startT} – ${endT}</span></div>
+        <div class="job-meta-item">⏳ <span>${fmtH(r._dur)}</span></div>
+        <div class="job-meta-item">📋 <span style="color:${gc(r['Status']||'')}">${r['Status']||'-'}</span></div>
+      </div>
+      ${r['Job_Detail']?`<div class="job-detail-text">📝 ${r['Job_Detail']}</div>`:''}
+      <div class="time-bar"><div class="time-bar-fill" style="width:${day.total>0?Math.round(r._dur/day.total*100):0}%;background:${col}"></div></div>
+    </div>`;
+  }).join('')}</div>`;
+
+  document.getElementById('modal-body').innerHTML=summary+jobList;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function openQR(){document.getElementById('qr-modal').classList.add('open');}
+function closeQR(){document.getElementById('qr-modal').classList.remove('open');}
+
+(async()=>{
+  try{
+    allData=await loadData();
+    filteredData=[...allData];
+    renderCharts();
+  } catch(e){
+    document.getElementById('app').innerHTML=`<div class="err">❌ โหลดข้อมูลไม่ได้<br><small>${e.message}</small></div>`;
+    document.getElementById('upd').textContent='error';
+  }
+})();
+</script>
+</body>
+</html>
