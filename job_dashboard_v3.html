@@ -24,6 +24,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .dot{width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 
+.export-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface);border:1px solid #22c55e;border-radius:8px;color:#22c55e;font-size:11px;font-family:'Space Mono',monospace;cursor:pointer;transition:all .2s;}
+.export-btn:hover{background:#22c55e;color:#000;}
+.export-btn svg{flex-shrink:0;}
+
 /* AppSheet link */
 .appsheet-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-size:11px;font-family:'Space Mono',monospace;text-decoration:none;transition:all .2s;}
 .appsheet-btn:hover{border-color:var(--accent);background:var(--surface2);}
@@ -177,6 +181,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
         <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v7H3zm2 2v3h3V5zm-2 9h7v7H3zm2 2v3h3v-3zm9-13h7v7h-7zm2 2v3h3V5zm1 9h2v2h-2zm2 2h2v2h-2zm-4 0h2v2h-2zm2 2h2v2h-2zm-2 2h2v2h-2zm2 0h2v2h-2z"/></svg>
         QR
       </button>
+      <button class="export-btn" onclick="exportExcel()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13zm-2 9l-3-3h2v-4h2v4h2l-3 3z"/></svg>
+        EXPORT
+      </button>
       <div class="live"><div class="dot"></div><span id="upd">loading...</span></div>
     </div>
   </div>
@@ -224,6 +232,7 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const SHEET_ID = '1oou_Sj2ZdwnAaqEMXGCUtw2syPAQ24qP8JrTfINdojc';
 // *** เปลี่ยน URL นี้เป็น link AppSheet ของคุณ ***
@@ -587,6 +596,87 @@ function openDayModal(dk){
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 function openQR(){document.getElementById('qr-modal').classList.add('open');}
 function closeQR(){document.getElementById('qr-modal').classList.remove('open');}
+
+// Export Excel
+function exportExcel(){
+  if(!filteredData.length){alert('ไม่มีข้อมูลที่จะ Export');return;}
+
+  const from=document.getElementById('dateFrom').value;
+  const to=document.getElementById('dateTo').value;
+  const dateRange=from&&to?`${from}_to_${to}`:from?`from_${from}`:to?`to_${to}`:'all';
+
+  // Sheet 1: Raw Data
+  const raw=filteredData.map(r=>({
+    'Job_ID':r['Job_ID']||'',
+    'User_Email':r['User_Email']||'',
+    'Job_Type':r['Job_Type']||'',
+    'Job_Name':r['Job_Name']||'',
+    'Job_Detail':r['Job_Detail']||'',
+    'Job_Date':r['Job_Date']||'',
+    'Start_Time':r['Start_Time']||'',
+    'End_Time':r['End_Time']||'',
+    'Duration':fmtH(r._dur),
+    'Duration_Min':Math.round(r._dur),
+    'Status':r['Status']||''
+  }));
+
+  // Sheet 2: Duration by Job Type
+  const done=filteredData.filter(r=>r['Status']==='เสร็จสิ้น'||r['Status']==='คงค้าง');
+  const typeMap={};
+  done.forEach(r=>{
+    const t=r['Job_Type']||'Other';
+    if(!typeMap[t])typeMap[t]={count:0,minutes:0};
+    typeMap[t].count++;
+    typeMap[t].minutes+=r._dur;
+  });
+  const totalMin=done.reduce((s,r)=>s+r._dur,0);
+  const typeSummary=Object.entries(typeMap).sort((a,b)=>b[1].minutes-a[1].minutes).map(([t,v])=>({
+    'Job_Type':t,
+    'จำนวนงาน':v.count,
+    'Duration':fmtH(v.minutes),
+    'Duration_Min':Math.round(v.minutes),
+    'สัดส่วน_%':totalMin>0?(v.minutes/totalMin*100).toFixed(1)+'%':'-'
+  }));
+
+  // Sheet 3: Daily Summary
+  const dailyMap={};
+  done.forEach(r=>{
+    if(!r._date)return;
+    const dk=toYMD(r._date);
+    if(!dailyMap[dk])dailyMap[dk]={date:dk,count:0,minutes:0,types:{}};
+    dailyMap[dk].count++;
+    dailyMap[dk].minutes+=r._dur;
+    const t=r['Job_Type']||'Other';
+    if(!dailyMap[dk].types[t])dailyMap[dk].types[t]=0;
+    dailyMap[dk].types[t]+=r._dur;
+  });
+  const dailySummary=Object.entries(dailyMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([dk,v])=>{
+    const row={'วันที่':dk,'จำนวนงาน':v.count,'Duration':fmtH(v.minutes),'Duration_Min':Math.round(v.minutes)};
+    Object.entries(v.types).forEach(([t,m])=>{row[t]=fmtH(m);});
+    return row;
+  });
+
+  // Sheet 4: Status Summary
+  const statusMap={};
+  filteredData.forEach(r=>{
+    const s=r['Status']||'?';
+    if(!statusMap[s])statusMap[s]=0;
+    statusMap[s]++;
+  });
+  const statusSummary=Object.entries(statusMap).sort((a,b)=>b[1]-a[1]).map(([s,c])=>({
+    'Status':s,'จำนวนงาน':c,'สัดส่วน_%':(c/filteredData.length*100).toFixed(1)+'%'
+  }));
+
+  // Build workbook using SheetJS
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(raw),'Raw Data');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(typeSummary),'Duration by Type');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(dailySummary),'Daily Summary');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(statusSummary),'Status Summary');
+
+  // Download
+  XLSX.writeFile(wb,`job_record_${dateRange}.xlsx`);
+}
 
 (async()=>{
   try{
