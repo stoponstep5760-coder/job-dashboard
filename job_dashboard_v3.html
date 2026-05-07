@@ -517,6 +517,30 @@ function swDaily(m){
   setTimeout(()=>document.querySelectorAll('.vbar-seg').forEach(el=>el.style.height=el.dataset.h),60);
 }
 
+// Parse time from various formats → "HH:MM"
+function fmtTime(val){
+  if(!val) return '-';
+  val=String(val).trim();
+  // Format: "M/D/YYYY H:MM:SS" or "M/D/YYYY H:MM"
+  if(val.includes('/')){
+    const parts=val.split(' ');
+    if(parts.length>=2){
+      const timePart=parts[1]; // "H:MM:SS"
+      const tp=timePart.split(':');
+      const h=String(parseInt(tp[0]||0)).padStart(2,'0');
+      const m=String(parseInt(tp[1]||0)).padStart(2,'0');
+      return`${h}:${m}`;
+    }
+  }
+  // Format: "YYYY-MM-DD HH:MM:SS"
+  if(val.includes('T')||val.includes(' ')){
+    const sep=val.includes('T')?'T':' ';
+    const timePart=val.split(sep)[1]||'';
+    return timePart.substring(0,5)||'-';
+  }
+  return val.substring(0,5)||'-';
+}
+
 // Day Modal
 function openDayModal(dk){
   const day=window._dailyMap?.[dk];
@@ -542,8 +566,8 @@ function openDayModal(dk){
 
   const jobList=`<div class="job-list">${rows.map(r=>{
     const col=gc(r['Job_Type']||'Other');
-    const startT=r['Start_Time']?String(r['Start_Time']).substring(11,16):'?';
-    const endT=r['End_Time']?String(r['End_Time']).substring(11,16):'?';
+    const startT=fmtTime(r['Start_Time']);
+    const endT=fmtTime(r['End_Time']);
     return`<div class="job-item">
       <div class="job-item-header">
         <div class="job-name">${r['Job_Name']||'-'}</div>
