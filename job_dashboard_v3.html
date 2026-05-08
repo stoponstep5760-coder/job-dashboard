@@ -155,7 +155,10 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .job-meta{display:flex;gap:12px;flex-wrap:wrap;}
 .job-meta-item{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;}
 .job-meta-item span{color:var(--text2);}
-.job-detail-text{font-size:11px;color:var(--text3);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);line-height:1.5;}
+.job-detail-text{font-size:11px;margin-top:8px;padding:8px 10px;background:var(--surface3);border-radius:6px;border-left:2px solid var(--border);line-height:1.5;}
+.job-detail-label{color:var(--text3);font-size:10px;font-family:'Space Mono',monospace;margin-right:6px;}
+.job-detail-content{color:var(--text2);}
+.job-detail-empty{color:var(--text3);font-style:italic;}
 .time-bar{height:3px;border-radius:2px;margin-top:8px;background:var(--border);overflow:hidden;}
 .time-bar-fill{height:100%;border-radius:2px;}
 
@@ -754,9 +757,12 @@ function openDayModal(dk){
       <div class="job-meta">
         <div class="job-meta-item">⏱ <span>${startT} – ${endT}</span></div>
         <div class="job-meta-item">⏳ <span>${fmtH(r._dur)}</span></div>
-        <div class="job-meta-item">📋 <span style="color:${gc(r['Status']||'')}">${r['Status']||'-'}</span></div>
+        <div class="job-meta-item">📋 <span style="color:${gsc(r['Status']||'')}">${r['Status']||'-'}</span></div>
       </div>
-      ${r['Job_Detail']?`<div class="job-detail-text">📝 ${r['Job_Detail']}</div>`:''}
+      <div class="job-detail-text">
+        <span class="job-detail-label">รายละเอียด:</span>
+        ${r['Job_Detail']?`<span class="job-detail-content">${r['Job_Detail']}</span>`:`<span class="job-detail-empty">-</span>`}
+      </div>
       <div class="time-bar"><div class="time-bar-fill" style="width:${day.total>0?Math.round(r._dur/day.total*100):0}%;background:${col}"></div></div>
     </div>`;
   }).join('')}</div>`;
