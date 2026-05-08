@@ -731,11 +731,20 @@ function openDayModal(dk){
   document.getElementById('modal-title').textContent=`${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`;
   document.getElementById('modal-subtitle').textContent=`วัน${dayNames[d.getDay()]} • ${day.rows.length} รายการ • รวม ${fmtH(day.total)}`;
 
-  // Sort rows by Start_Time
+  // Sort rows by Start_Time (chronological)
   const rows=[...day.rows].sort((a,b)=>{
-    const ta=String(a['Start_Time']||'');
-    const tb=String(b['Start_Time']||'');
-    return ta.localeCompare(tb);
+    const parseToMinutes=(val)=>{
+      if(!val) return 0;
+      val=String(val).trim();
+      let timePart='';
+      if(val.includes('/')){const parts=val.split(' ');timePart=parts[parts.length-1]||'';}
+      else if(val.includes('T')){timePart=val.split('T')[1]||'';}
+      else if(val.includes(' ')){timePart=val.split(' ')[1]||'';}
+      else{timePart=val;}
+      const tp=timePart.split(':');
+      return (parseInt(tp[0]||0)*60)+(parseInt(tp[1]||0));
+    };
+    return parseToMinutes(a['Start_Time'])-parseToMinutes(b['Start_Time']);
   });
 
   const summary=`
